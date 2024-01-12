@@ -193,7 +193,8 @@ MQTTFILES=$(LWIPDIR)/apps/mqtt/mqtt.c
 # MBEDTLS_FILES: MBEDTLS related files of lwIP rep
 MBEDTLS_FILES=$(LWIPDIR)/apps/altcp_tls/altcp_tls_mbedtls.c \
 	$(LWIPDIR)/apps/altcp_tls/altcp_tls_mbedtls_mem.c \
-	$(LWIPDIR)/apps/snmp/snmpv3_mbedtls.c
+	$(LWIPDIR)/apps/snmp/snmpv3_mbedtls.c \
+	$(LWIPDIR)/apps/altcp_tls/altcp_tls_openssl.c
 
 # LWIPAPPFILES: All LWIP APPs
 LWIPAPPFILES=$(SNMPFILES) \

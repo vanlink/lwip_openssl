@@ -175,12 +175,15 @@ a lot of data that needs to be copied, this should be set high. */
 #define LWIP_TCP                1
 #define TCP_TTL                 255
 
+#define LWIP_HAVE_OPENSSL 1
+
 #define LWIP_ALTCP              (LWIP_TCP)
 #ifdef LWIP_HAVE_MBEDTLS
 #define LWIP_ALTCP_TLS          (LWIP_TCP)
 #define LWIP_ALTCP_TLS_MBEDTLS  (LWIP_TCP)
+#elif LWIP_HAVE_OPENSSL
+#define LWIP_ALTCP_TLS          (LWIP_TCP)
 #endif
-
 
 /* Controls if TCP should queue segments that arrive out of
    order. Define to 0 if your device is low on memory. */

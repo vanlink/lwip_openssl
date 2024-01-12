@@ -57,6 +57,7 @@
 #define LWIP_SNMP_APP                 LWIP_UDP
 #define LWIP_SNTP_APP                 LWIP_UDP
 #define LWIP_SOCKET_EXAMPLES_APP      1
+#define LWIP_OPENSSL_EXAMPLES_APP     0
 #define LWIP_TCPECHO_APP              LWIP_TCP
 /* Set this to 1 to use the netconn tcpecho server,
  * otherwise the raw api server will be used. */

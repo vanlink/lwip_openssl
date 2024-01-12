@@ -11,6 +11,8 @@ include(${LWIP_DIR}/src/Filelists.cmake)
 include(${LWIP_DIR}/contrib/Filelists.cmake)
 include(${LWIP_DIR}/contrib/ports/unix/Filelists.cmake)
 
+find_package(OpenSSL REQUIRED)
+
 if(NOT EXISTS ${LWIP_DIR}/contrib/examples/example_app/lwipcfg.h)
   message(WARNING "${LWIP_DIR}/contrib/examples/example_app is missing lwipcfg.h
 Copy ${LWIP_DIR}/contrib/examples/example_app/lwipcfg.h.example to ${LWIP_DIR}/contrib/examples/example_app/lwipcfg.h and edit appropriately")
@@ -19,7 +21,7 @@ add_executable(example_app ${LWIP_DIR}/contrib/examples/example_app/test.c defau
 target_include_directories(example_app PRIVATE ${LWIP_INCLUDE_DIRS})
 target_compile_options(example_app PRIVATE ${LWIP_COMPILER_FLAGS})
 target_compile_definitions(example_app PRIVATE ${LWIP_DEFINITIONS} ${LWIP_MBEDTLS_DEFINITIONS})
-target_link_libraries(example_app ${LWIP_SANITIZER_LIBS} lwipcontribexamples lwipcontribapps lwipcontribaddons lwipallapps lwipcontribportunix lwipcore lwipmbedtls)
+target_link_libraries(example_app ${LWIP_SANITIZER_LIBS} lwipcontribexamples lwipcontribapps lwipcontribaddons lwipallapps lwipcontribportunix lwipcore lwipmbedtls OpenSSL::SSL)
 
 add_executable(makefsdata ${lwipmakefsdata_SRCS})
 target_compile_options(makefsdata PRIVATE ${LWIP_COMPILER_FLAGS})

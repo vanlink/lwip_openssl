@@ -41,6 +41,7 @@ CONTRIBAPPFILES=$(CONTRIBDIR)/apps/httpserver/httpserver-netconn.c \
 	$(CONTRIBDIR)/apps/ping/ping.c \
 	$(CONTRIBDIR)/apps/socket_examples/socket_examples.c \
 	$(CONTRIBDIR)/apps/rtp/rtp.c \
+	$(CONTRIBDIR)/apps/openssl_examples/openssl_examples.c \
 	$(CONTRIBDIR)/examples/httpd/fs_example/fs_example.c \
 	$(CONTRIBDIR)/examples/httpd/https_example/https_example.c \
 	$(CONTRIBDIR)/examples/httpd/ssi_example/ssi_example.c \

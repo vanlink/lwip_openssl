@@ -226,6 +226,7 @@ set(lwipmbedtls_SRCS
     ${LWIP_DIR}/src/apps/altcp_tls/altcp_tls_mbedtls.c
     ${LWIP_DIR}/src/apps/altcp_tls/altcp_tls_mbedtls_mem.c
     ${LWIP_DIR}/src/apps/snmp/snmpv3_mbedtls.c
+    ${LWIP_DIR}/src/apps/altcp_tls/altcp_tls_openssl.c
 )
 
 # All LWIP files without apps

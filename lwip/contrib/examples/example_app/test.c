@@ -73,6 +73,7 @@
 #include "apps/udpecho/udpecho.h"
 #include "apps/tcpecho_raw/tcpecho_raw.h"
 #include "apps/socket_examples/socket_examples.h"
+#include "apps/openssl_examples/openssl_examples.h"
 
 #include "examples/lwiperf/lwiperf_example.h"
 #include "examples/mdns/mdns_example.h"
@@ -568,6 +569,9 @@ apps_init(void)
 #if LWIP_SOCKET_EXAMPLES_APP && LWIP_SOCKET
   socket_examples_init();
 #endif /* LWIP_SOCKET_EXAMPLES_APP && LWIP_SOCKET */
+#if LWIP_OPENSSL_EXAMPLES_APP
+  openssl_examples_init();
+#endif
 #if LWIP_MDNS_APP
   mdns_example_init();
 #endif

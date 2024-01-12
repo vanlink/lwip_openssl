@@ -42,6 +42,7 @@ set(lwipcontribapps_SRCS
     ${LWIP_CONTRIB_DIR}/apps/netio/netio.c
     ${LWIP_CONTRIB_DIR}/apps/ping/ping.c
     ${LWIP_CONTRIB_DIR}/apps/socket_examples/socket_examples.c
+    ${LWIP_CONTRIB_DIR}/apps/openssl_examples/openssl_examples.c
     ${LWIP_CONTRIB_DIR}/apps/rtp/rtp.c
 )
 add_library(lwipcontribapps EXCLUDE_FROM_ALL ${lwipcontribapps_SRCS})

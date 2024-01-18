@@ -97,6 +97,8 @@ struct altcp_tls_config *altcp_tls_create_config_server_privkey_cert(const u8_t 
         goto error;
     }
 
+    SSL_CTX_set_max_proto_version(conf->openssl_ctx, TLS1_2_VERSION);
+
     SSL_CTX_set_session_cache_mode(conf->openssl_ctx, SSL_SESS_CACHE_OFF);
 
     return conf;
@@ -346,8 +348,14 @@ static err_t altcp_openssl_lower_recv(void *arg, struct altcp_pcb *inner_conn, s
         get_data_from_ssl_and_send_out(state->openssl_ssl, inner_conn);
         if(ret >= 0){
             state->handshake_done = 1;
-            if(conn->connected){
-                err2 = conn->connected(conn->arg, conn, ERR_OK);
+            if(state->ssl_is_server){
+                if(conn->accept){
+                    err2 = conn->accept(conn->arg, conn, ERR_OK);
+                }
+            }else{
+                if(conn->connected){
+                    err2 = conn->connected(conn->arg, conn, ERR_OK);
+                }
             }
         }
     }
@@ -393,6 +401,8 @@ static err_t altcp_openssl_lower_accept(void *arg, struct altcp_pcb *accepted_co
     altcp_openssl_state_t *state;
     struct altcp_pcb *new_conn;
 
+    (void)err;
+
     if(!(listen_conn && listen_conn->state && listen_conn->accept)){
         return ERR_ARG;
     }
@@ -418,7 +428,9 @@ static err_t altcp_openssl_lower_accept(void *arg, struct altcp_pcb *accepted_co
         return ERR_ABRT;
     }
 
-    return listen_conn->accept(listen_conn->arg, new_conn, err);
+    new_conn->accept = listen_conn->accept;
+
+    return ERR_OK;
 }
 
 static err_t altcp_openssl_connect(struct altcp_pcb *conn, const ip_addr_t *ipaddr, u16_t port, altcp_connected_fn connected)

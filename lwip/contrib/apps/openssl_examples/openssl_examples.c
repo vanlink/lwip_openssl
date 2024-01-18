@@ -57,6 +57,7 @@ static err_t cb_httpclient_recv(void *arg, struct altcp_pcb *tpcb, struct pbuf *
     pcurr = p;
     while(pcurr){
         snprintf(buff, sizeof(buff), "%s", (char *)pcurr->payload);
+        buff[pcurr->len] = 0;
         printf("%s\n", buff);
         pcurr = pcurr->next;
     }
@@ -67,11 +68,64 @@ static err_t cb_httpclient_recv(void *arg, struct altcp_pcb *tpcb, struct pbuf *
     return ERR_OK;
 }
 
+static err_t cb_httpserver_sent(void *arg, struct altcp_pcb *tpcb, u16_t len)
+{
+    u16_t room;
+
+    (void)arg;
+    (void)tpcb;
+    (void)len;
+
+    room = altcp_sndbuf(tpcb);
+    (void)room;
+
+    return ERR_OK;
+}
+
+static const char *httprsp = "HTTP/1.1 200 OK\r\nServer: lwip-openssl\r\nContent-length: 24\r\n\r\n<html>hello,world</html>";
+
+static err_t cb_httpserver_recv(void *arg, struct altcp_pcb *tpcb, struct pbuf *p, err_t err)
+{
+    struct pbuf *pcurr;
+    char buff[2048];
+
+    (void)arg;
+
+    if(err != ERR_OK || !p){
+        if(p){
+            pbuf_free(p);
+        }
+        altcp_close(tpcb);
+        return ERR_OK;
+    }
+
+    pcurr = p;
+    while(pcurr){
+        snprintf(buff, sizeof(buff), "%s", (char *)pcurr->payload);
+        buff[pcurr->len] = 0;
+        printf("%s\n", buff);
+        pcurr = pcurr->next;
+    }
+
+    altcp_recved(tpcb, p->tot_len);
+    pbuf_free(p);
+
+    altcp_write(tpcb, httprsp, strlen(httprsp), 0);
+    altcp_output(tpcb);
+
+    altcp_close(tpcb);
+
+    return ERR_OK;
+}
+
 static err_t cb_httpserver_accept(void *arg, struct altcp_pcb *pcb, err_t err)
 {
     (void)arg;
-    (void)pcb;
     (void)err;
+
+    altcp_sent(pcb, cb_httpserver_sent);
+    altcp_recv(pcb, cb_httpserver_recv);
+    altcp_poll(pcb, NULL, 2U);
 
     return ERR_OK;
 }

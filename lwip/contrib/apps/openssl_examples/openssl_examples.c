@@ -67,6 +67,15 @@ static err_t cb_httpclient_recv(void *arg, struct altcp_pcb *tpcb, struct pbuf *
     return ERR_OK;
 }
 
+static err_t cb_httpserver_accept(void *arg, struct altcp_pcb *pcb, err_t err)
+{
+    (void)arg;
+    (void)pcb;
+    (void)err;
+
+    return ERR_OK;
+}
+
 static void openssl_example_test_client(void *arg)
 {
     struct altcp_pcb *newpcb = NULL;
@@ -110,6 +119,9 @@ static void openssl_example_test_client(void *arg)
 static void openssl_example_test_server(void *arg)
 {
     struct altcp_tls_config *conf = altcp_tls_create_config_server_privkey_cert((const u8_t *)"../server.key", 0, NULL, 0, (const u8_t *)"../server.crt", 0);
+    struct altcp_pcb *listenpcb;
+    struct altcp_pcb *listenpcbnew;
+    ip_addr_t bind_addr;
 
     (void)arg;
 
@@ -117,6 +129,23 @@ static void openssl_example_test_server(void *arg)
 
     printf("===== openssl_example_test_server Starts =====\n");
 
+    LOCK_TCPIP_CORE();
+    listenpcb = altcp_tls_alloc(conf, IPADDR_TYPE_V4);
+    UNLOCK_TCPIP_CORE();
+
+    IP_ADDR4(&bind_addr, 0, 0, 0, 0);
+
+    LOCK_TCPIP_CORE();
+    altcp_bind(listenpcb, &bind_addr, 443);
+    UNLOCK_TCPIP_CORE();
+
+    LOCK_TCPIP_CORE();
+    listenpcbnew = altcp_listen(listenpcb);
+    UNLOCK_TCPIP_CORE();
+
+    LOCK_TCPIP_CORE();
+    altcp_accept(listenpcbnew, cb_httpserver_accept);
+    UNLOCK_TCPIP_CORE();
 
     printf("===== openssl_example_test_server End =====\n");
 }

@@ -213,23 +213,11 @@ static int get_data_from_ssl_and_send_out(SSL *ssl, struct altcp_pcb *inner_conn
     return sum;
 }
 
-static err_t altcp_openssl_lower_connected(void *arg, struct altcp_pcb *inner_conn, err_t err)
+static SSL *create_openssl_ssl(SSL_CTX *ctx, int is_server)
 {
-    struct altcp_pcb *conn = (struct altcp_pcb *)arg;
-    altcp_openssl_state_t *state;
+    SSL *ssl = NULL;
     BIO *rbio = NULL;
     BIO *wbio = NULL;
-    struct altcp_tls_config *conf;
-
-    (void)err;
-
-    if(!conn || !conn->state){
-        return ERR_VAL;
-    }
-
-    state = (altcp_openssl_state_t *)conn->state;
-
-    conf = (struct altcp_tls_config *)state->openssl_conf;
 
     rbio = BIO_new(BIO_s_mem());
     if(!rbio){
@@ -243,19 +231,20 @@ static err_t altcp_openssl_lower_connected(void *arg, struct altcp_pcb *inner_co
     BIO_set_nbio(rbio, 1);
     BIO_set_nbio(wbio, 1);
 
-    state->openssl_ssl = SSL_new(conf->openssl_ctx);
-    if(!state->openssl_ssl){
+    ssl = SSL_new(ctx);
+    if(!ssl){
         goto error;
     }
 
-    SSL_set_connect_state(state->openssl_ssl);
-    SSL_set_bio(state->openssl_ssl, rbio, wbio);
+    if(is_server){
+        SSL_set_accept_state(ssl);
+    }else{
+        SSL_set_connect_state(ssl);
+    }
+    
+    SSL_set_bio(ssl, rbio, wbio);
 
-    do_handshake_process(state->openssl_ssl);
-
-    get_data_from_ssl_and_send_out(state->openssl_ssl, inner_conn);
-
-    return ERR_OK;
+    return ssl;
 
 error:
 
@@ -266,9 +255,37 @@ error:
         BIO_free(wbio);
     }
 
-    return ERR_ABRT;
+    return NULL;
 }
 
+static err_t altcp_openssl_lower_connected(void *arg, struct altcp_pcb *inner_conn, err_t err)
+{
+    struct altcp_pcb *conn = (struct altcp_pcb *)arg;
+    altcp_openssl_state_t *state;
+    struct altcp_tls_config *conf;
+
+    (void)err;
+
+    if(!conn || !conn->state){
+        return ERR_VAL;
+    }
+
+    state = (altcp_openssl_state_t *)conn->state;
+
+    conf = (struct altcp_tls_config *)state->openssl_conf;
+
+    state->openssl_ssl = create_openssl_ssl(conf->openssl_ctx, 0);
+
+    if(!state->openssl_ssl){
+        return ERR_ABRT;
+    }
+
+    do_handshake_process(state->openssl_ssl);
+
+    get_data_from_ssl_and_send_out(state->openssl_ssl, inner_conn);
+
+    return ERR_OK;
+}
 
 static err_t altcp_openssl_lower_recv(void *arg, struct altcp_pcb *inner_conn, struct pbuf *p, err_t err)
 {
@@ -371,26 +388,37 @@ static void altcp_openssl_lower_err(void *arg, err_t err)
 
 static err_t altcp_openssl_lower_accept(void *arg, struct altcp_pcb *accepted_conn, err_t err)
 {
-    struct altcp_pcb * listen_conn = (struct altcp_pcb *) arg;
-    if(listen_conn && listen_conn->state && listen_conn->accept) {
-        err_t setup_err;
-        altcp_openssl_state_t *listen_state = (altcp_openssl_state_t *)listen_conn->state;
+    struct altcp_pcb * listen_conn = (struct altcp_pcb *)arg;
+    err_t setup_err;
+    altcp_openssl_state_t *state;
+    struct altcp_pcb *new_conn;
 
-        struct altcp_pcb *new_conn = altcp_alloc();
-        if(!new_conn) {
-            return ERR_MEM;
-        }
-
-        setup_err = altcp_openssl_setup(listen_state->openssl_conf, new_conn, accepted_conn);
-        if(setup_err != ERR_OK) {
-            altcp_free(new_conn);
-            return setup_err;
-        }
-
-        return listen_conn->accept(listen_conn->arg, new_conn, err);
+    if(!(listen_conn && listen_conn->state && listen_conn->accept)){
+        return ERR_ARG;
     }
 
-    return ERR_ARG;
+    state = (altcp_openssl_state_t *)listen_conn->state;
+
+    new_conn = altcp_alloc();
+    if(!new_conn) {
+        return ERR_MEM;
+    }
+
+    setup_err = altcp_openssl_setup(state->openssl_conf, new_conn, accepted_conn);
+    if(setup_err != ERR_OK) {
+        altcp_free(new_conn);
+        return setup_err;
+    }
+
+    state = (altcp_openssl_state_t *)new_conn->state;
+
+    state->openssl_ssl = create_openssl_ssl(((struct altcp_tls_config *)state->openssl_conf)->openssl_ctx, 1);
+    if(!state->openssl_ssl){
+        altcp_free(new_conn);
+        return ERR_ABRT;
+    }
+
+    return listen_conn->accept(listen_conn->arg, new_conn, err);
 }
 
 static err_t altcp_openssl_connect(struct altcp_pcb *conn, const ip_addr_t *ipaddr, u16_t port, altcp_connected_fn connected)
@@ -602,6 +630,7 @@ static err_t altcp_openssl_setup(void *conf, struct altcp_pcb *conn, struct altc
     }
     conn->state = state;
     state->openssl_conf = conf;
+    state->ssl_is_server = config->openssl_is_server;
 
     altcp_openssl_setup_callbacks(conn, inner_conn);
 

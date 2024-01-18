@@ -258,7 +258,7 @@ static err_t altcp_openssl_lower_sent(void *arg, struct altcp_pcb *inner_conn, u
 
     get_data_from_ssl_and_send_out(state->openssl_ssl, inner_conn);
 
-    if (conn->sent){
+    if (conn->sent && state->handshake_done){
         return conn->sent(conn->arg, conn, len);
     }
 
@@ -372,6 +372,43 @@ static void altcp_openssl_abort(struct altcp_pcb *conn)
   }
 }
 
+static u16_t altcp_openssl_mss(struct altcp_pcb *conn)
+{
+  if (conn == NULL) {
+    return 0;
+  }
+  return altcp_mss(conn->inner_conn);
+}
+
+static u16_t altcp_openssl_sndbuf(struct altcp_pcb *conn)
+{
+    altcp_openssl_state_t *state;
+    u16_t sndbuf;
+
+    if(!conn) {
+        return 0;
+    }
+
+    state = (altcp_openssl_state_t *) conn->state;
+    if(!state || !state->handshake_done) {
+        return 0;
+    }
+
+    if(!conn->inner_conn) {
+        return 0;
+    }
+
+    sndbuf = altcp_sndbuf(conn->inner_conn);
+
+    if(sndbuf > 32){
+        sndbuf -= 32;
+    }else{
+        sndbuf = 0;
+    }
+
+    return sndbuf;
+}
+
 static const struct altcp_functions altcp_openssl_functions = {
   altcp_default_set_poll,
   altcp_openssl_recved,
@@ -383,8 +420,8 @@ static const struct altcp_functions altcp_openssl_functions = {
   altcp_default_shutdown,
   altcp_openssl_write,
   altcp_default_output,
-  altcp_default_mss,
-  altcp_default_sndbuf,
+  altcp_openssl_mss,
+  altcp_openssl_sndbuf,
   altcp_default_sndqueuelen,
   altcp_default_nagle_disable,
   altcp_default_nagle_enable,

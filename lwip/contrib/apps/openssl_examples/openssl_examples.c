@@ -13,8 +13,12 @@ static const char *httpreq = "GET / HTTP/1.1\r\nHost: 127.0.0.1\r\n\r\n";
 
 static inline err_t cb_httpclient_connected(void *arg, struct altcp_pcb *tpcb, err_t err)
 {
+    u16_t room;
     (void)arg;
     (void)err;
+
+    room = altcp_sndbuf(tpcb);
+    (void)room;
 
     altcp_write(tpcb, httpreq, strlen(httpreq), 0);
     altcp_output(tpcb);
@@ -24,10 +28,15 @@ static inline err_t cb_httpclient_connected(void *arg, struct altcp_pcb *tpcb, e
 
 static err_t cb_httpclient_sent(void *arg, struct altcp_pcb *tpcb, u16_t len)
 {
+    u16_t room;
+
     (void)arg;
     (void)tpcb;
     (void)len;
-    
+
+    room = altcp_sndbuf(tpcb);
+    (void)room;
+
     return ERR_OK;
 }
 

@@ -34,6 +34,7 @@ static err_t cb_httpclient_sent(void *arg, struct altcp_pcb *tpcb, u16_t len)
 static err_t cb_httpclient_recv(void *arg, struct altcp_pcb *tpcb, struct pbuf *p, err_t err)
 {
     struct pbuf *pcurr;
+    char buff[2048];
 
     (void)arg;
 
@@ -44,15 +45,12 @@ static err_t cb_httpclient_recv(void *arg, struct altcp_pcb *tpcb, struct pbuf *
         return ERR_ABRT;
     }
 
-    printf("\n---S----\n");
     pcurr = p;
     while(pcurr){
-        printf("\n---ss----\n");
-        printf("%s\n", (char *)pcurr->payload);
-        printf("\n---ee----\n");
+        snprintf(buff, sizeof(buff), "%s", (char *)pcurr->payload);
+        printf("%s\n", buff);
         pcurr = pcurr->next;
     }
-    printf("\n---E----\n");
 
     altcp_recved(tpcb, p->tot_len);
     pbuf_free(p);
@@ -60,26 +58,48 @@ static err_t cb_httpclient_recv(void *arg, struct altcp_pcb *tpcb, struct pbuf *
     return ERR_OK;
 }
 
-void openssl_examples_init(void)
+static void openssl_example_test_client(void *arg)
 {
     struct altcp_pcb *newpcb = NULL;
     err_t err;
     ip_addr_t remote_addr;
     struct altcp_tls_config *conf = altcp_tls_create_config_client(NULL, 0);
 
-    (void)conf;
-    /*
-    newpcb = altcp_new(NULL);
-    */
+    (void)arg;
+
+    printf("===== openssl_example_test_client Starts =====\n");
+    sys_msleep(5000);
+
+    printf("Sending... HTTPS GET /\n");
+    LOCK_TCPIP_CORE();
     newpcb = altcp_tls_alloc(conf, IPADDR_TYPE_V4);
-    
+    UNLOCK_TCPIP_CORE();
+
     IP_ADDR4(&remote_addr, 192, 168, 1, 1);
 
+    LOCK_TCPIP_CORE();
     altcp_sent(newpcb, cb_httpclient_sent);
     altcp_recv(newpcb, cb_httpclient_recv);
+    UNLOCK_TCPIP_CORE();
 
+    LOCK_TCPIP_CORE();
     err = altcp_connect(newpcb, &remote_addr, 443, cb_httpclient_connected);
     if (err != ERR_OK) {
     }
+    UNLOCK_TCPIP_CORE();
+
+    sys_msleep(5000);
+
+    LOCK_TCPIP_CORE();
+    altcp_close(newpcb);
+    UNLOCK_TCPIP_CORE();
+
+    printf("===== openssl_example_test_client End =====\n");
+
+}
+
+void openssl_examples_init(void)
+{
+    sys_thread_new("openssl_example_test_client", openssl_example_test_client, NULL, 0, 0);
 }
 

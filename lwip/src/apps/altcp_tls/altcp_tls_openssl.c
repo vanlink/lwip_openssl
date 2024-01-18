@@ -47,9 +47,9 @@ struct altcp_tls_config *altcp_tls_create_config_client(const u8_t *ca, size_t c
         free(conf);
         return NULL;
     }
-
+/*
     SSL_CTX_set_max_proto_version(conf->openssl_ctx, TLS1_2_VERSION);
-
+*/
     SSL_CTX_set_verify(conf->openssl_ctx, SSL_VERIFY_NONE, NULL);
 
     SSL_CTX_set_session_cache_mode(conf->openssl_ctx, SSL_SESS_CACHE_OFF);
@@ -177,86 +177,6 @@ static err_t altcp_openssl_lower_connected(void *arg, struct altcp_pcb *inner_co
     return ERR_OK;
 }
 
-static err_t altcp_openssl_connect(struct altcp_pcb *conn, const ip_addr_t *ipaddr, u16_t port, altcp_connected_fn connected)
-{
-  if (conn == NULL) {
-    return ERR_VAL;
-  }
-  conn->connected = connected;
-  return altcp_connect(conn->inner_conn, ipaddr, port, altcp_openssl_lower_connected);
-}
-
-static void altcp_openssl_dealloc(struct altcp_pcb *conn)
-{
-  if (conn) {
-    altcp_openssl_state_t *state = (altcp_openssl_state_t *)conn->state;
-    if (state) {
-      if(state->openssl_ssl){
-        SSL_free(state->openssl_ssl);
-        state->openssl_ssl = NULL;
-      }
-      free(state);
-      conn->state = NULL;
-    }
-  }
-}
-
-static err_t altcp_openssl_write(struct altcp_pcb *conn, const void *dataptr, u16_t len, u8_t apiflags)
-{
-    altcp_openssl_state_t *state;
-    struct altcp_pcb *inner_conn = conn->inner_conn;
-
-    LWIP_UNUSED_ARG(apiflags);
-
-    state = (altcp_openssl_state_t *)conn->state;
-
-    if(!state->handshake_done){
-        return ERR_ABRT;
-    }
-
-    SSL_write(state->openssl_ssl, dataptr, len);
-
-    get_data_from_ssl_and_send_out(state->openssl_ssl, inner_conn);
-
-    return ERR_OK;
-}
-
-static void altcp_openssl_recved(struct altcp_pcb *conn, u16_t len)
-{
-    (void)conn;
-    (void)len;
-}
-
-static const struct altcp_functions altcp_openssl_functions = {
-  altcp_default_set_poll,
-  altcp_openssl_recved,
-  altcp_default_bind,
-  altcp_openssl_connect,
-  NULL,
-  NULL,
-  NULL,
-  altcp_default_shutdown,
-  altcp_openssl_write,
-  altcp_default_output,
-  altcp_default_mss,
-  altcp_default_sndbuf,
-  altcp_default_sndqueuelen,
-  altcp_default_nagle_disable,
-  altcp_default_nagle_enable,
-  altcp_default_nagle_disabled,
-  altcp_default_setprio,
-  altcp_openssl_dealloc,
-  altcp_default_get_tcp_addrinfo,
-  altcp_default_get_ip,
-  altcp_default_get_port,
-#if LWIP_TCP_KEEPALIVE
-  altcp_default_keepalive_disable,
-  altcp_default_keepalive_enable,
-#endif
-#ifdef LWIP_DEBUG
-  altcp_default_dbg_get_tcp_state,
-#endif
-};
 
 static err_t altcp_openssl_lower_recv(void *arg, struct altcp_pcb *inner_conn, struct pbuf *p, err_t err)
 {
@@ -357,6 +277,132 @@ static void altcp_openssl_lower_err(void *arg, err_t err)
   }
 }
 
+static err_t altcp_openssl_connect(struct altcp_pcb *conn, const ip_addr_t *ipaddr, u16_t port, altcp_connected_fn connected)
+{
+  if (conn == NULL) {
+    return ERR_VAL;
+  }
+  conn->connected = connected;
+  return altcp_connect(conn->inner_conn, ipaddr, port, altcp_openssl_lower_connected);
+}
+
+static void altcp_openssl_dealloc(struct altcp_pcb *conn)
+{
+  if (conn) {
+    altcp_openssl_state_t *state = (altcp_openssl_state_t *)conn->state;
+    if (state) {
+      if(state->openssl_ssl){
+        SSL_free(state->openssl_ssl);
+        state->openssl_ssl = NULL;
+      }
+      free(state);
+      conn->state = NULL;
+    }
+  }
+}
+
+static err_t altcp_openssl_write(struct altcp_pcb *conn, const void *dataptr, u16_t len, u8_t apiflags)
+{
+    altcp_openssl_state_t *state;
+    struct altcp_pcb *inner_conn = conn->inner_conn;
+
+    LWIP_UNUSED_ARG(apiflags);
+
+    state = (altcp_openssl_state_t *)conn->state;
+
+    if(!state->handshake_done){
+        return ERR_ABRT;
+    }
+
+    SSL_write(state->openssl_ssl, dataptr, len);
+
+    get_data_from_ssl_and_send_out(state->openssl_ssl, inner_conn);
+
+    return ERR_OK;
+}
+
+static void altcp_openssl_recved(struct altcp_pcb *conn, u16_t len)
+{
+    (void)conn;
+    (void)len;
+}
+
+static void altcp_openssl_setup_callbacks(struct altcp_pcb *conn, struct altcp_pcb *inner_conn)
+{
+  altcp_arg(inner_conn, conn);
+  altcp_recv(inner_conn, altcp_openssl_lower_recv);
+  altcp_sent(inner_conn, altcp_openssl_lower_sent);
+  altcp_err(inner_conn, altcp_openssl_lower_err);
+}
+
+static void altcp_openssl_remove_callbacks(struct altcp_pcb *inner_conn)
+{
+  altcp_arg(inner_conn, NULL);
+  altcp_recv(inner_conn, NULL);
+  altcp_sent(inner_conn, NULL);
+  altcp_err(inner_conn, NULL);
+  altcp_poll(inner_conn, NULL, inner_conn->pollinterval);
+}
+
+static err_t altcp_openssl_close(struct altcp_pcb *conn)
+{
+  struct altcp_pcb *inner_conn;
+  if (conn == NULL) {
+    return ERR_VAL;
+  }
+  inner_conn = conn->inner_conn;
+  if (inner_conn) {
+    err_t err;
+    altcp_openssl_remove_callbacks(conn->inner_conn);
+    err = altcp_close(conn->inner_conn);
+    if (err != ERR_OK) {
+      altcp_openssl_setup_callbacks(conn, inner_conn);
+      return err;
+    }
+    conn->inner_conn = NULL;
+  }
+  altcp_free(conn);
+  return ERR_OK;
+}
+
+static void altcp_openssl_abort(struct altcp_pcb *conn)
+{
+  if (conn != NULL) {
+    altcp_abort(conn->inner_conn);
+  }
+}
+
+static const struct altcp_functions altcp_openssl_functions = {
+  altcp_default_set_poll,
+  altcp_openssl_recved,
+  altcp_default_bind,
+  altcp_openssl_connect,
+  NULL,
+  altcp_openssl_abort,
+  altcp_openssl_close,
+  altcp_default_shutdown,
+  altcp_openssl_write,
+  altcp_default_output,
+  altcp_default_mss,
+  altcp_default_sndbuf,
+  altcp_default_sndqueuelen,
+  altcp_default_nagle_disable,
+  altcp_default_nagle_enable,
+  altcp_default_nagle_disabled,
+  altcp_default_setprio,
+  altcp_openssl_dealloc,
+  altcp_default_get_tcp_addrinfo,
+  altcp_default_get_ip,
+  altcp_default_get_port,
+#if LWIP_TCP_KEEPALIVE
+  altcp_default_keepalive_disable,
+  altcp_default_keepalive_enable,
+#endif
+#ifdef LWIP_DEBUG
+  altcp_default_dbg_get_tcp_state,
+#endif
+};
+
 static err_t altcp_openssl_setup(void *conf, struct altcp_pcb *conn, struct altcp_pcb *inner_conn)
 {
     struct altcp_tls_config *config;
@@ -400,10 +446,7 @@ static err_t altcp_openssl_setup(void *conf, struct altcp_pcb *conn, struct altc
     SSL_set_connect_state(state->openssl_ssl);
     SSL_set_bio(state->openssl_ssl, rbio, wbio);
 
-    altcp_arg(inner_conn, conn);
-    altcp_recv(inner_conn, altcp_openssl_lower_recv);
-    altcp_sent(inner_conn, altcp_openssl_lower_sent);
-    altcp_err(inner_conn, altcp_openssl_lower_err);
+    altcp_openssl_setup_callbacks(conn, inner_conn);
 
     conn->inner_conn = inner_conn;
     conn->fns = &altcp_openssl_functions;

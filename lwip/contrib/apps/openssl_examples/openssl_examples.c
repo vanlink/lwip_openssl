@@ -107,8 +107,23 @@ static void openssl_example_test_client(void *arg)
 
 }
 
+static void openssl_example_test_server(void *arg)
+{
+    struct altcp_tls_config *conf = altcp_tls_create_config_server_privkey_cert((const u8_t *)"../server.key", 0, NULL, 0, (const u8_t *)"../server.crt", 0);
+
+    (void)arg;
+
+    LWIP_ASSERT("altcp_tls_create_config_server_privkey_cert failed", conf);
+
+    printf("===== openssl_example_test_server Starts =====\n");
+
+
+    printf("===== openssl_example_test_server End =====\n");
+}
+
 void openssl_examples_init(void)
 {
     sys_thread_new("openssl_example_test_client", openssl_example_test_client, NULL, 0, 0);
+    sys_thread_new("openssl_example_test_server", openssl_example_test_server, NULL, 0, 0);
 }
 

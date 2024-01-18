@@ -21,6 +21,8 @@
 
 struct altcp_tls_config {
     SSL_CTX *openssl_ctx;
+
+    u8_t openssl_is_server;
 };
 
 typedef struct altcp_openssl_state_s {
@@ -55,6 +57,56 @@ struct altcp_tls_config *altcp_tls_create_config_client(const u8_t *ca, size_t c
     SSL_CTX_set_session_cache_mode(conf->openssl_ctx, SSL_SESS_CACHE_OFF);
 
     return conf;
+}
+
+struct altcp_tls_config *altcp_tls_create_config_server_privkey_cert(const u8_t *privkey, size_t privkey_len, const u8_t *privkey_pass, size_t privkey_pass_len,
+                                                                                        const u8_t *cert, size_t cert_len)
+{
+    struct altcp_tls_config *conf = (struct altcp_tls_config *)calloc(1, sizeof(struct altcp_tls_config));
+
+    (void)privkey_len;
+    (void)privkey_pass;
+    (void)privkey_pass_len;
+    (void)cert_len;
+
+    if(!conf){
+        goto error;
+    }
+
+    conf->openssl_is_server = 1;
+
+    conf->openssl_ctx = SSL_CTX_new(TLS_server_method());
+
+    if(!conf->openssl_ctx){
+        goto error;
+    }
+
+    if(SSL_CTX_use_certificate_file(conf->openssl_ctx, (const char *)cert, SSL_FILETYPE_PEM) <= 0){
+        goto error;
+    }
+
+    if(SSL_CTX_use_PrivateKey_file(conf->openssl_ctx, (const char *)privkey, SSL_FILETYPE_PEM) <= 0){
+        goto error;
+    }
+
+    if(!SSL_CTX_check_private_key(conf->openssl_ctx)){
+        goto error;
+    }
+
+    SSL_CTX_set_session_cache_mode(conf->openssl_ctx, SSL_SESS_CACHE_OFF);
+
+    return conf;
+
+error:
+
+    if(conf){
+        if(conf->openssl_ctx){
+            SSL_CTX_free(conf->openssl_ctx);
+        }
+        free(conf);
+    }
+
+    return NULL;
 }
 
 void altcp_tls_free_config(struct altcp_tls_config *conf)

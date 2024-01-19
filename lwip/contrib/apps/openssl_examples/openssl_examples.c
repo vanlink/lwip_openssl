@@ -91,10 +91,15 @@ static err_t cb_httpserver_recv(void *arg, struct altcp_pcb *tpcb, struct pbuf *
 
     (void)arg;
 
-    if(err != ERR_OK || !p){
+    if(err != ERR_OK){
         if(p){
             pbuf_free(p);
         }
+        altcp_abort(tpcb);
+        return ERR_ABRT;
+    }
+
+    if(!p){
         altcp_close(tpcb);
         return ERR_OK;
     }
@@ -112,8 +117,6 @@ static err_t cb_httpserver_recv(void *arg, struct altcp_pcb *tpcb, struct pbuf *
 
     altcp_write(tpcb, httprsp, strlen(httprsp), 0);
     altcp_output(tpcb);
-
-    altcp_close(tpcb);
 
     return ERR_OK;
 }

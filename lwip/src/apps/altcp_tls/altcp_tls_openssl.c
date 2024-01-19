@@ -96,9 +96,9 @@ struct altcp_tls_config *altcp_tls_create_config_server_privkey_cert(const u8_t 
     if(!SSL_CTX_check_private_key(conf->openssl_ctx)){
         goto error;
     }
-
+/*
     SSL_CTX_set_max_proto_version(conf->openssl_ctx, TLS1_2_VERSION);
-
+*/
     SSL_CTX_set_session_cache_mode(conf->openssl_ctx, SSL_SESS_CACHE_OFF);
 
     return conf;
@@ -299,7 +299,7 @@ static err_t altcp_openssl_lower_recv(void *arg, struct altcp_pcb *inner_conn, s
     struct pbuf *buf;
     int buff_len = 4096;
 
-    if(err != ERR_OK || !p){
+    if(err != ERR_OK){
         if(p){
             pbuf_free(p);
         }
@@ -312,6 +312,20 @@ static err_t altcp_openssl_lower_recv(void *arg, struct altcp_pcb *inner_conn, s
     }
 
     state = (altcp_openssl_state_t *)conn->state;
+
+    if(!p){
+        if(state->handshake_done) {
+            if(conn->recv) {
+                return conn->recv(conn->arg, conn, NULL, ERR_OK);
+            }
+        } else {
+            if(conn->err) {
+                conn->err(conn->arg, ERR_ABRT);
+            }
+            altcp_close(conn);
+        }
+        return ERR_OK;
+    }
 
     pcurr = p;
     while(pcurr){

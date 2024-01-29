@@ -41,6 +41,8 @@ struct altcp_tls_config *altcp_tls_create_config_client(const u8_t *ca, size_t c
     (void)ca;
     (void)ca_len;
 
+    printf("\n===== LwIP with openssl %s =====\n", OpenSSL_version(OPENSSL_VERSION));
+
     conf = (struct altcp_tls_config *)calloc(1, sizeof(struct altcp_tls_config));
 
     if(!conf){

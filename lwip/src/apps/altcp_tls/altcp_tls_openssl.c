@@ -203,7 +203,7 @@ static int get_data_from_ssl_and_send_out(SSL *ssl, struct altcp_pcb *inner_conn
         }
         sum += ret;
 
-        err = altcp_write(inner_conn, buff, ret, 0);
+        err = altcp_write(inner_conn, buff, ret, TCP_WRITE_FLAG_COPY);
         if (err !=  ERR_OK) {
             return sum;
         }
@@ -329,6 +329,10 @@ static err_t altcp_openssl_lower_recv(void *arg, struct altcp_pcb *inner_conn, s
         return ERR_OK;
     }
 
+    if(!state->openssl_ssl){
+        goto exit;
+    }
+
     pcurr = p;
     while(pcurr){
         put_data_into_ssl(state->openssl_ssl, (const char *)pcurr->payload, pcurr->len);
@@ -350,6 +354,9 @@ static err_t altcp_openssl_lower_recv(void *arg, struct altcp_pcb *inner_conn, s
                 pbuf_realloc(buf, ret);
                 if (conn->recv) {
                     err2 = conn->recv(conn->arg, conn, buf, ERR_OK);
+                    if(!state->openssl_ssl){
+                        goto exit;
+                    }
                 }else{
                     pbuf_free(buf);
                 }

@@ -301,11 +301,13 @@ static err_t altcp_openssl_lower_recv(void *arg, struct altcp_pcb *inner_conn, s
     struct pbuf *buf;
     int buff_len = 4096;
 
+    if(p){
+        altcp_recved(inner_conn, p->tot_len);
+    }
+
     if(err != ERR_OK){
-        if(p){
-            pbuf_free(p);
-        }
-        return ERR_ABRT;
+        err2 = ERR_ABRT;
+        goto exit;
     }
 
     if(!conn || !conn->state){
@@ -318,7 +320,8 @@ static err_t altcp_openssl_lower_recv(void *arg, struct altcp_pcb *inner_conn, s
     if(!p){
         if(state->handshake_done) {
             if(conn->recv) {
-                return conn->recv(conn->arg, conn, NULL, ERR_OK);
+                err2 = conn->recv(conn->arg, conn, NULL, ERR_OK);
+                goto exit;
             }
         } else {
             if(conn->err) {
@@ -326,7 +329,8 @@ static err_t altcp_openssl_lower_recv(void *arg, struct altcp_pcb *inner_conn, s
             }
             altcp_close(conn);
         }
-        return ERR_OK;
+        err2 = ERR_OK;
+        goto exit;
     }
 
     if(!state->openssl_ssl){
@@ -385,8 +389,9 @@ static err_t altcp_openssl_lower_recv(void *arg, struct altcp_pcb *inner_conn, s
 
 exit:
 
-    altcp_recved(inner_conn, p->tot_len);
-    pbuf_free(p);
+    if(p){
+        pbuf_free(p);
+    }
 
     return err2;
 }

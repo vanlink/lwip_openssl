@@ -456,7 +456,8 @@ static err_t altcp_openssl_lower_accept(void *arg, struct altcp_pcb *accepted_co
         return ERR_ABRT;
     }
 
-    new_conn->accept = listen_conn->accept;
+    altcp_arg(new_conn, listen_conn->arg);
+    altcp_accept(new_conn, listen_conn->accept);
 
     return ERR_OK;
 }

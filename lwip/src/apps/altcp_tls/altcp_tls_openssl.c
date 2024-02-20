@@ -358,7 +358,9 @@ static err_t altcp_openssl_lower_recv(void *arg, struct altcp_pcb *inner_conn, s
                 pbuf_realloc(buf, ret);
                 if (conn->recv) {
                     err2 = conn->recv(conn->arg, conn, buf, ERR_OK);
-                    if(!state->openssl_ssl){
+                    state = (altcp_openssl_state_t *)conn->state;
+                    // conn and ssl may be already closed
+                    if(!state || !state->openssl_ssl){
                         goto exit;
                     }
                 }else{

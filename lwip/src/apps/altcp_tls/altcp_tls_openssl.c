@@ -346,28 +346,32 @@ static err_t altcp_openssl_lower_recv(void *arg, struct altcp_pcb *inner_conn, s
     if(state->handshake_done){
 
         while(1){
-            buf = pbuf_alloc(PBUF_RAW, buff_len, PBUF_RAM);
-            if(!buf){
-                err2 = ERR_ABRT;
-                break;
-            }
-            ret = SSL_read(state->openssl_ssl, buf->payload, buff_len);
-            error = SSL_get_error(state->openssl_ssl, ret);
-            (void)error;
-            if(ret > 0){
-                pbuf_realloc(buf, ret);
-                if (conn->recv) {
-                    err2 = conn->recv(conn->arg, conn, buf, ERR_OK);
-                    state = (altcp_openssl_state_t *)conn->state;
-                    // conn and ssl may be already closed
-                    if(!state || !state->openssl_ssl){
-                        goto exit;
+            if(1/*SSL_has_pending(state->openssl_ssl)*/){
+                buf = pbuf_alloc(PBUF_RAW, buff_len, PBUF_RAM);
+                if(!buf){
+                    err2 = ERR_ABRT;
+                    break;
+                }
+                ret = SSL_read(state->openssl_ssl, buf->payload, buff_len);
+                error = SSL_get_error(state->openssl_ssl, ret);
+                (void)error;
+                if(ret > 0){
+                    pbuf_realloc(buf, ret);
+                    if (conn->recv) {
+                        err2 = conn->recv(conn->arg, conn, buf, ERR_OK);
+                        state = (altcp_openssl_state_t *)conn->state;
+                        // conn and ssl may be already closed
+                        if(!state || !state->openssl_ssl){
+                            goto exit;
+                        }
+                    }else{
+                        pbuf_free(buf);
                     }
                 }else{
                     pbuf_free(buf);
+                    break;
                 }
             }else{
-                pbuf_free(buf);
                 break;
             }
         }
@@ -384,6 +388,37 @@ static err_t altcp_openssl_lower_recv(void *arg, struct altcp_pcb *inner_conn, s
             }else{
                 if(conn->connected){
                     err2 = conn->connected(conn->arg, conn, ERR_OK);
+                }
+            }
+
+            while(1){
+                if(1/*SSL_has_pending(state->openssl_ssl)*/){
+                    buf = pbuf_alloc(PBUF_RAW, buff_len, PBUF_RAM);
+                    if(!buf){
+                        err2 = ERR_ABRT;
+                        break;
+                    }
+                    ret = SSL_read(state->openssl_ssl, buf->payload, buff_len);
+                    error = SSL_get_error(state->openssl_ssl, ret);
+                    (void)error;
+                    if(ret > 0){
+                        pbuf_realloc(buf, ret);
+                        if (conn->recv) {
+                            err2 = conn->recv(conn->arg, conn, buf, ERR_OK);
+                            state = (altcp_openssl_state_t *)conn->state;
+                            // conn and ssl may be already closed
+                            if(!state || !state->openssl_ssl){
+                                goto exit;
+                            }
+                        }else{
+                            pbuf_free(buf);
+                        }
+                    }else{
+                        pbuf_free(buf);
+                        break;
+                    }
+                }else{
+                    break;
                 }
             }
         }
